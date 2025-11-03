@@ -5,15 +5,20 @@ from typing import List, Optional
 
 app = FastAPI(title="Events API", version="1.0.0")
 
-# CORS - allows your React frontend to connect
+
+origins = [
+    "http://localhost",
+    "http://127.0.0.1",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=origins,      # list of origins
+    allow_origin_regex=r"http://localhost:\d+",  # any port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Pydantic models
 class User(BaseModel):
     username: str
@@ -87,7 +92,6 @@ def get_user_events(username: str):
     if username not in users_db:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Return empty list if user has no events
     return events_db.get(username, [])
 
 @app.post("/events/{username}", response_model=Event, status_code=201)
