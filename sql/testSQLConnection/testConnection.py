@@ -1,4 +1,5 @@
 import urllib
+import pandas as pd
 from sqlalchemy import create_engine, text
 from fastapi import FastAPI
 import uvicorn
@@ -17,11 +18,24 @@ params = urllib.parse.quote_plus(
     "Connection Timeout=30;"
 )
 
-
+# Create SQLAlchemy engine
 connection_string = f"mssql+pyodbc:///?odbc_connect={params}"
 engine = create_engine(connection_string)
 
-@app.get("/ping-db")
+# Universal query runner
+def run_query(sql: str):
+    with engine.connect() as conn:
+        result = conn.execute(text(sql))
+        return result.mappings().all()  # clean dict output
+
+# Optional: Convert query result to DataFrame
+def query_to_dataframe(sql: str):
+    with engine.connect() as conn:
+        result = conn.execute(text(sql))
+        return pd.DataFrame(result.mappings().all())
+
+# Route: Ping database
+@app.get("/ping_db")
 def ping_db():
     try:
         with engine.connect() as conn:
@@ -30,6 +44,21 @@ def ping_db():
     except Exception as e:
         return {"status": "failed", "error": str(e)}
 
+# Route: Run test query
+@app.get("/test_query")
+def get_test_table():
+    try:
+        df = query_to_dataframe("SELECT * FROM TestTable")
+        print(df.head())
+        return {
+            "status": "success",
+            "columns": df.columns.tolist(),
+            "data": df.to_dict(orient="records")
+        }
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
+
+
+# Run the app
 if __name__ == "__main__":
-    # Disable reload when running directly
     uvicorn.run(app, host="127.0.0.1", port=8000)
