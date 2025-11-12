@@ -24,7 +24,7 @@ export default function LoginPage({ onLogin }) {
         const data = await response.json();
         localStorage.setItem('username', data.username);
         localStorage.setItem('token', data.token);
-        onLogin();
+        onLogin(data.username);
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Invalid username or password');
