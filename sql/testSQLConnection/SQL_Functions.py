@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, text
 from fastapi import FastAPI, HTTPException
 from typing import List, Dict, Any, Optional
 import uvicorn
+from datetime import datetime, timedelta
 
 app = FastAPI()
 
@@ -121,7 +122,182 @@ def main_test_write():
     print(f"\nVerification - Retrieved {len(df_verify)} rows:")
     print(df_verify)
 
+def main_populate_database():
+    """
+    Populate the database with sample data:
+    - 3 users (2 regular, 1 admin)
+    - 3 groups
+    - 3 events per group (9 total events)
+    - Group memberships and admin assignments
+    """
+    
+    print("=" * 60)
+    print("POPULATING DATABASE WITH SAMPLE DATA")
+    print("=" * 60)
+    
+    # ============================================
+    # 1. CREATE USERS
+    # ============================================
+    print("\n1. Creating Users...")
+    users_df = pd.DataFrame({
+        'username': ['jsmith', 'adavis', 'mjohnson', 'bwilson', 'slee', 'kbrown'],
+        'password': ['Pass123!', 'SecurePass456', 'MyPassword789', 'BookLover99', 'HikePass2025', 'TechGuru!23'],
+        'Fname': ['John', 'Alice', 'Michael', 'Bob', 'Sarah', 'Kelly'],
+        'Lname': ['Smith', 'Davis', 'Johnson', 'Wilson', 'Lee', 'Brown'],
+        'isAdmin': [False, True, False, False, False, False]  # Alice is the system admin
+    })
+    
+    send_df_to_table(users_df, 'User', if_exists='append')
+    print(f"✓ Inserted {len(users_df)} users")
+    print(users_df[['username', 'Fname', 'Lname', 'isAdmin']])
+    
+    # ============================================
+    # 2. CREATE GROUPS
+    # ============================================
+    print("\n2. Creating Groups...")
+    groups_df = pd.DataFrame({
+        'groupID': [1, 2, 3],
+        'groupName': ['Book Club', 'Hiking Adventures', 'Tech Meetup'],
+        'description': [
+            'Monthly book discussions and literary events',
+            'Weekend hiking trips and outdoor activities',
+            'Technology presentations and networking events'
+        ]
+    })
+    
+    send_df_to_table(groups_df, 'Group', if_exists='append')
+    print(f"✓ Inserted {len(groups_df)} groups")
+    print(groups_df[['groupID', 'groupName']])
+    
+    # ============================================
+    # 3. CREATE EVENTS
+    # ============================================
+    print("\n3. Creating Events...")
+    
+    base_date = datetime(2025, 11, 15)
+    
+    events_data = []
+    event_id = 1
+    
+    # Book Club Events (Group 1)
+    events_data.extend([
+        (event_id, base_date, "Discussion: '1984' by George Orwell"),
+        (event_id + 1, base_date + timedelta(days=30), "Author Talk: Local Fiction Writer"),
+        (event_id + 2, base_date + timedelta(days=60), "Book Swap and Coffee Social")
+    ])
+    event_id += 3
+    
+    # Hiking Adventures Events (Group 2)
+    events_data.extend([
+        (event_id, base_date + timedelta(days=7), "Trail Hike: Eagle Peak (5 miles)"),
+        (event_id + 1, base_date + timedelta(days=21), "Waterfall Trek and Picnic"),
+        (event_id + 2, base_date + timedelta(days=45), "Sunrise Hike: Mountain Vista")
+    ])
+    event_id += 3
+    
+    # Tech Meetup Events (Group 3)
+    events_data.extend([
+        (event_id, base_date + timedelta(days=3), "AI and Machine Learning Workshop"),
+        (event_id + 1, base_date + timedelta(days=17), "Cloud Computing Panel Discussion"),
+        (event_id + 2, base_date + timedelta(days=38), "Networking Night: Tech Startups")
+    ])
+    
+    events_df = pd.DataFrame(events_data, columns=['eventID', 'date', 'description'])
+    
+    send_df_to_table(events_df, 'Event', if_exists='append')
+    print(f"✓ Inserted {len(events_df)} events")
+    print(events_df[['eventID', 'description']])
+    
+    # ============================================
+    # 4. LINK GROUPS TO EVENTS
+    # ============================================
+    print("\n4. Linking Groups to Events...")
+    
+    group_to_event_df = pd.DataFrame({
+        'eventID': [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        'groupID': [1, 1, 1, 2, 2, 2, 3, 3, 3]
+    })
+    
+    send_df_to_table(group_to_event_df, 'GroupToEvent', if_exists='append')
+    print(f"✓ Linked {len(group_to_event_df)} events to groups")
+    
+    # ============================================
+    # 5. ASSIGN GROUP MEMBERS
+    # ============================================
+    print("\n5. Assigning Group Members...")
+    
+    # Book Club (Group 1): Bob (admin), Alice, John
+    # Hiking Adventures (Group 2): Sarah (admin), Michael, Kelly
+    # Tech Meetup (Group 3): Kelly (admin), John, Alice, Michael
+    group_members_df = pd.DataFrame({
+        'username': ['bwilson', 'adavis', 'jsmith', 
+                     'slee', 'mjohnson', 'kbrown',
+                     'kbrown', 'jsmith', 'adavis', 'mjohnson'],
+        'groupID': [1, 1, 1,
+                    2, 2, 2,
+                    3, 3, 3, 3]
+    })
+    
+    send_df_to_table(group_members_df, 'GroupMember', if_exists='append')
+    print(f"✓ Created {len(group_members_df)} group memberships")
+    
+    # ============================================
+    # 6. ASSIGN GROUP ADMINS
+    # ============================================
+    print("\n6. Assigning Group Admins...")
+    
+    # Bob is admin of Book Club (and is a member)
+    # Sarah is admin of Hiking Adventures (and is a member)
+    # Kelly is admin of Tech Meetup (and is a member)
+    group_admins_df = pd.DataFrame({
+        'username': ['bwilson', 'slee', 'kbrown'],
+        'groupID': [1, 2, 3]
+    })
+    
+    send_df_to_table(group_admins_df, 'GroupAdmin', if_exists='append')
+    print(f"✓ Assigned {len(group_admins_df)} group admins")
+    
+    # ============================================
+    # VERIFICATION
+    # ============================================
+    print("\n" + "=" * 60)
+    print("DATABASE POPULATION COMPLETE!")
+    print("=" * 60)
+    
+    print("\nSummary:")
+    print(f"  • {len(users_df)} users created")
+    print(f"  • {len(groups_df)} groups created")
+    print(f"  • {len(events_df)} events created")
+    print(f"  • {len(group_to_event_df)} group-event links")
+    print(f"  • {len(group_members_df)} group memberships")
+    print(f"  • {len(group_admins_df)} group admins")
+    
+    # Query to verify the data
+    print("\n" + "=" * 60)
+    print("VERIFICATION QUERIES")
+    print("=" * 60)
+    
+    print("\nGroups with their events:")
+    verification_query = """
+        SELECT 
+            g.groupName,
+            COUNT(gte.eventID) as EventCount,
+            STRING_AGG(CAST(e.eventID AS VARCHAR), ', ') as EventIDs
+        FROM [Group] g
+        LEFT JOIN GroupToEvent gte ON g.groupID = gte.groupID
+        LEFT JOIN Event e ON gte.eventID = e.eventID
+        GROUP BY g.groupName
+        ORDER BY g.groupName
+    """
+    
+    try:
+        result_df = read_query_to_df(verification_query)
+        print(result_df)
+    except Exception as e:
+        print(f"Verification query failed: {e}")
+    
+    print("\n✓ All data successfully populated!")
+
 if __name__ == "__main__":
     # Uncomment the one you want to test:
-    
-    main_test_write()
+    main_populate_database()
