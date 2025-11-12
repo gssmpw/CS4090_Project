@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-function LoginPage() {
+export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,20 +23,20 @@ function LoginPage() {
       });
       
       if (response.ok) {
-<<<<<<< HEAD
         const userData = await response.json();
         
         // Store user data in sessionStorage
         sessionStorage.setItem('user', JSON.stringify(userData));
         
-        // Navigate to dashboard
+        // Store token and username in localStorage for App.jsx compatibility
+        localStorage.setItem('token', 'logged-in'); // Set a token flag
+        localStorage.setItem('username', userData.username);
+        
+        // Call the onLogin prop passed from App.jsx
+        onLogin(userData.username);
+        
+        // Navigate to dashboard page
         navigate('/dashboard');
-=======
-        const data = await response.json();
-        localStorage.setItem('username', data.username);
-        localStorage.setItem('token', data.token);
-        onLogin(data.username);
->>>>>>> 7dc7a293181d49b6e77eb1319dd71e3499f35cc9
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Invalid username or password');
@@ -60,15 +60,15 @@ function LoginPage() {
           </div>
         )}
 
-        <div>
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "20px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Username</label>
             <input 
               type="text" 
               value={username} 
               onChange={(e) => setUsername(e.target.value)} 
-              onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
               placeholder="Enter username" 
+              required
               disabled={loading} 
               style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} 
             />
@@ -80,15 +80,15 @@ function LoginPage() {
               type="password" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
-              onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
               placeholder="Enter password" 
+              required
               disabled={loading} 
               style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} 
             />
           </div>
 
           <button 
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading} 
             style={{ 
               width: "100%", 
@@ -104,7 +104,7 @@ function LoginPage() {
           >
             {loading ? "Logging in..." : "Sign In"}
           </button>
-        </div>
+        </form>
 
         <div style={{ marginTop: "24px", padding: "16px", backgroundColor: "#f8f9fa", borderRadius: "4px", fontSize: "13px", color: "#666" }}>
           <p style={{ margin: "0 0 8px 0", fontWeight: "600", color: "#333" }}>Test Accounts:</p>
@@ -114,40 +114,5 @@ function LoginPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Protected Route Component
-function ProtectedRoute({ children }) {
-  const user = sessionStorage.getItem('user');
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return children;
-}
-
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              {/* This will be replaced with your actual Dashboard component */}
-              <div style={{ padding: "20px" }}>
-                <h1>Dashboard Page</h1>
-                <p>Import your Dashboard.jsx component here</p>
-                <p>User data is available in sessionStorage</p>
-              </div>
-            </ProtectedRoute>
-          } 
-        />
-        <Route path="/" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
   );
 }
