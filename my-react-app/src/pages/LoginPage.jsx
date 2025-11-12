@@ -23,6 +23,7 @@ function LoginPage() {
       });
       
       if (response.ok) {
+<<<<<<< HEAD
         const userData = await response.json();
         
         // Store user data in sessionStorage
@@ -30,6 +31,12 @@ function LoginPage() {
         
         // Navigate to dashboard
         navigate('/dashboard');
+=======
+        const data = await response.json();
+        localStorage.setItem('username', data.username);
+        localStorage.setItem('token', data.token);
+        onLogin(data.username);
+>>>>>>> 7dc7a293181d49b6e77eb1319dd71e3499f35cc9
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Invalid username or password');
