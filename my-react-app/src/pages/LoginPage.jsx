@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
-export default function LoginPage({ onLogin }) {
+function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -12,7 +14,7 @@ export default function LoginPage({ onLogin }) {
     setError("");
 
     try {
-      const response = await fetch('http://localhost:8000/login', {
+      const response = await fetch('http://localhost:8001/login', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -21,17 +23,20 @@ export default function LoginPage({ onLogin }) {
       });
       
       if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('username', data.username);
-        localStorage.setItem('token', data.token);
-        onLogin();
+        const userData = await response.json();
+        
+        // Store user data in sessionStorage
+        sessionStorage.setItem('user', JSON.stringify(userData));
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Invalid username or password');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Failed to connect to server. Make sure the backend is running on http://localhost:8000');
+      setError('Failed to connect to server. Make sure the backend is running on http://localhost:8001');
     } finally {
       setLoading(false);
     }
@@ -48,29 +53,94 @@ export default function LoginPage({ onLogin }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <div>
           <div style={{ marginBottom: "20px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Username</label>
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter username" required disabled={loading} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} />
+            <input 
+              type="text" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+              onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
+              placeholder="Enter username" 
+              disabled={loading} 
+              style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} 
+            />
           </div>
 
           <div style={{ marginBottom: "24px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" required disabled={loading} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} />
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
+              placeholder="Enter password" 
+              disabled={loading} 
+              style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} 
+            />
           </div>
 
-          <button type="submit" disabled={loading} style={{ width: "100%", padding: "12px", backgroundColor: loading ? "#6c757d" : "#007bff", color: "white", border: "none", borderRadius: "4px", fontSize: "16px", fontWeight: "500", cursor: loading ? "not-allowed" : "pointer" }}>
+          <button 
+            onClick={handleSubmit}
+            disabled={loading} 
+            style={{ 
+              width: "100%", 
+              padding: "12px", 
+              backgroundColor: loading ? "#6c757d" : "#007bff", 
+              color: "white", 
+              border: "none", 
+              borderRadius: "4px", 
+              fontSize: "16px", 
+              fontWeight: "500", 
+              cursor: loading ? "not-allowed" : "pointer" 
+            }}
+          >
             {loading ? "Logging in..." : "Sign In"}
           </button>
-        </form>
+        </div>
 
         <div style={{ marginTop: "24px", padding: "16px", backgroundColor: "#f8f9fa", borderRadius: "4px", fontSize: "13px", color: "#666" }}>
           <p style={{ margin: "0 0 8px 0", fontWeight: "600", color: "#333" }}>Test Accounts:</p>
-          <p style={{ margin: "4px 0" }}><strong>john</strong> / password123</p>
-          <p style={{ margin: "4px 0" }}><strong>alice</strong> / pass456</p>
-          <p style={{ margin: "4px 0" }}><strong>bob</strong> / test789</p>
+          <p style={{ margin: "4px 0" }}><strong>jsmith</strong> / Pass123!</p>
+          <p style={{ margin: "4px 0" }}><strong>adavis</strong> / SecurePass456</p>
+          <p style={{ margin: "4px 0" }}><strong>mjohnson</strong> / MyPassword789</p>
         </div>
       </div>
     </div>
+  );
+}
+
+// Protected Route Component
+function ProtectedRoute({ children }) {
+  const user = sessionStorage.getItem('user');
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              {/* This will be replaced with your actual Dashboard component */}
+              <div style={{ padding: "20px" }}>
+                <h1>Dashboard Page</h1>
+                <p>Import your Dashboard.jsx component here</p>
+                <p>User data is available in sessionStorage</p>
+              </div>
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
