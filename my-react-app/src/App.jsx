@@ -2,9 +2,12 @@ import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import EventsPage from "./pages/EventsPage";
+import DashboardPage from "./pages/DashboardPage"; // ✅ NEW
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    !!localStorage.getItem("token") // so it stays logged in after refresh
+  );
 
   return (
     <Router>
@@ -12,8 +15,16 @@ function App() {
         <Route
           path="/"
           element={
-            isLoggedIn ? <Navigate to="/events" /> : <LoginPage onLogin={() => setIsLoggedIn(true)} />
+            isLoggedIn ? (
+              <Navigate to="/dashboard" /> // ✅ redirect to dashboard now
+            ) : (
+              <LoginPage onLogin={() => setIsLoggedIn(true)} />
+            )
           }
+        />
+        <Route
+          path="/dashboard"
+          element={isLoggedIn ? <DashboardPage /> : <Navigate to="/" />}
         />
         <Route
           path="/events"
