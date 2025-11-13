@@ -5,3 +5,5 @@ typing-extensions
 sqlalchemy
 pyodbc
 python-dotenv
+pandas 
+datetime
