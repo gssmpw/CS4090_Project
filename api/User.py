@@ -1,17 +1,7 @@
-import sys
-import os
-
-# Add the parent directory to Python path
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, parent_dir)
-
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Union
-
-# Import from sql folder
-from sql.testSQLConnection.SQL_Functions import read_query_to_df
+from classes.SQLManager import DatabaseManager
 
 # Create FastAPI app for User microservice
 app = FastAPI(title="User Authentication Service", version="1.0.0")
@@ -25,6 +15,12 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+db = DatabaseManager(
+    server="cs4090.database.windows.net,1433",
+    database="CS4090Project",
+    username="DevUser",
+    password="CSProject4090!"
+)
 
 # ============================================
 # REQUEST/RESPONSE MODELS
@@ -63,7 +59,7 @@ async def login(request: LoginRequest) -> dict:
             WHERE username = :username AND password = :password
         """
         
-        df = read_query_to_df(query, {"username": request.username, "password": request.password})
+        df = db.read_query_to_df(query, {"username": request.username, "password": request.password})
         
         # If no results, credentials are invalid
         if len(df) == 0:
