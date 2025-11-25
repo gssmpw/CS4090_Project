@@ -1,7 +1,6 @@
 import sys
 import os
 
-# Add the parent directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from fastapi import FastAPI, HTTPException, status
@@ -10,10 +9,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
-# Import from classes folder
 from classes.SQLManager import DatabaseManager
 
-# Initialize database connection
 db = DatabaseManager(
     server="cs4090.database.windows.net,1433",
     database="CS4090Project",
@@ -21,39 +18,42 @@ db = DatabaseManager(
     password="CSProject4090!"
 )
 
-# Create FastAPI app for Events microservice
 app = FastAPI(title="Events Service", version="1.0.0")
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5174", "http://127.0.0.1"],
+    allow_origin_regex=r"http://localhost:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# ============================================
 # RESPONSE MODELS
-# ============================================
 
 class EventResponse(BaseModel):
     eventID: int
     date: str
     description: Optional[str] = None
 
-
 class EventDetailResponse(BaseModel):
     eventID: int
     date: str
     description: Optional[str] = None
-    groups: List[dict]  # List of groups this event belongs to
+    groups: List[dict]
 
+class EventCreate(BaseModel):
+    name: str
+    date: str
+    time: str
 
-# ============================================
-# EVENT ENDPOINTS
-# ============================================
+class EventUpdate(BaseModel):
+    name: Optional[str] = None
+    date: Optional[str] = None
+    time: Optional[str] = None
+
+# EVENT QUERY ENDPOINTS
 
 @app.get("/events/user/{username}")
 async def get_user_events(username: str) -> List[EventResponse]:
@@ -77,7 +77,6 @@ async def get_user_events(username: str) -> List[EventResponse]:
         if len(df) == 0:
             return []
         
-        # Convert DataFrame to list of dictionaries
         events = df.to_dict('records')
         
         # Convert date to string format
@@ -92,7 +91,6 @@ async def get_user_events(username: str) -> List[EventResponse]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving user events: {str(e)}"
         )
-
 
 @app.get("/events/group/{group_id}")
 async def get_group_events(group_id: int) -> List[EventResponse]:
@@ -115,7 +113,6 @@ async def get_group_events(group_id: int) -> List[EventResponse]:
         if len(df) == 0:
             return []
         
-        # Convert DataFrame to list of dictionaries
         events = df.to_dict('records')
         
         # Convert date to string format
@@ -131,7 +128,6 @@ async def get_group_events(group_id: int) -> List[EventResponse]:
             detail=f"Error retrieving group events: {str(e)}"
         )
 
-
 @app.get("/events/{event_id}")
 async def get_event_details(event_id: int) -> EventDetailResponse:
     """
@@ -140,7 +136,6 @@ async def get_event_details(event_id: int) -> EventDetailResponse:
     Includes the event details and all groups associated with it.
     """
     try:
-        # Get event details
         event_query = """
             SELECT eventID, date, CAST(description AS NVARCHAR(MAX)) as description
             FROM [Event]
@@ -165,14 +160,11 @@ async def get_event_details(event_id: int) -> EventDetailResponse:
         
         groups_df = db.read_query_to_df(groups_query, {"event_id": event_id})
         
-        # Convert event to dictionary
         event = event_df.iloc[0].to_dict()
         
-        # Convert date to string format
         if isinstance(event['date'], datetime):
             event['date'] = event['date'].isoformat()
-        
-        # Convert groups to list of dictionaries
+
         groups = groups_df.to_dict('records') if len(groups_df) > 0 else []
         
         return {
@@ -190,10 +182,214 @@ async def get_event_details(event_id: int) -> EventDetailResponse:
             detail=f"Error retrieving event details: {str(e)}"
         )
 
+# EVENT COMMAND ENDPOINTS (from backend.py)
 
-# ============================================
-# RUN THE MICROSERVICE
-# ============================================
+@app.post("/events/{username}", status_code=status.HTTP_201_CREATED)
+async def create_event(username: str, event: EventCreate):
+    """
+    Create a new event for a user.
+    This is a temporary endpoint - will move to Groups Service.
+    """
+    try:
+        # Verify user exists
+        user_check = """
+            SELECT username FROM [User] WHERE username = :username
+        """
+        user_df = db.read_query_to_df(user_check, {"username": username})
+        
+        if len(user_df) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Create event
+        insert_query = """
+            INSERT INTO [Event] (date, description)
+            OUTPUT INSERTED.eventID
+            VALUES (:date, :description)
+        """
+        
+        # Combine date and time for description
+        description = f"{event.name} at {event.time}"
+        
+        result_df = db.read_query_to_df(
+            insert_query,
+            {"date": event.date, "description": description}
+        )
+        
+        new_event_id = result_df.iloc[0]['eventID']
+        
+        return {
+            "id": new_event_id,
+            "name": event.name,
+            "date": event.date,
+            "time": event.time,
+            "user_id": username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating event: {str(e)}"
+        )
+
+@app.put("/events/{username}/{event_id}")
+async def update_event(username: str, event_id: int, event: EventUpdate):
+    """
+    Update an existing event.
+    This is a temporary endpoint - will move to Groups Service.
+    """
+    try:
+        # Verify user exists
+        user_check = """
+            SELECT username FROM [User] WHERE username = :username
+        """
+        user_df = db.read_query_to_df(user_check, {"username": username})
+        
+        if len(user_df) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Verify event exists
+        event_check = """
+            SELECT eventID FROM [Event] WHERE eventID = :event_id
+        """
+        event_df = db.read_query_to_df(event_check, {"event_id": event_id})
+        
+        if len(event_df) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Event not found"
+            )
+        
+        # Build update description
+        description = None
+        if event.name and event.time:
+            description = f"{event.name} at {event.time}"
+        
+        # Update event
+        update_parts = []
+        params = {"event_id": event_id}
+        
+        if event.date:
+            update_parts.append("date = :date")
+            params["date"] = event.date
+        
+        if description:
+            update_parts.append("description = :description")
+            params["description"] = description
+        
+        if not update_parts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields to update"
+            )
+        
+        update_query = f"""
+            UPDATE [Event]
+            SET {', '.join(update_parts)}
+            WHERE eventID = :event_id
+        """
+        
+        db.execute_query(update_query, params)
+        
+        return {
+            "id": event_id,
+            "name": event.name,
+            "date": event.date,
+            "time": event.time,
+            "user_id": username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating event: {str(e)}"
+        )
+
+@app.delete("/events/{username}/{event_id}")
+async def delete_event(username: str, event_id: int):
+    """
+    Delete an event.
+    This is a temporary endpoint - will move to Groups Service.
+    """
+    try:
+        # Verify user exists
+        user_check = """
+            SELECT username FROM [User] WHERE username = :username
+        """
+        user_df = db.read_query_to_df(user_check, {"username": username})
+        
+        if len(user_df) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Verify event exists
+        event_check = """
+            SELECT eventID FROM [Event] WHERE eventID = :event_id
+        """
+        event_df = db.read_query_to_df(event_check, {"event_id": event_id})
+        
+        if len(event_df) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Event not found"
+            )
+        
+        # Delete from GroupToEvent first (if exists)
+        delete_mapping = """
+            DELETE FROM GroupToEvent WHERE eventID = :event_id
+        """
+        db.execute_query(delete_mapping, {"event_id": event_id})
+        
+        # Delete event
+        delete_query = """
+            DELETE FROM [Event] WHERE eventID = :event_id
+        """
+        db.execute_query(delete_query, {"event_id": event_id})
+        
+        return {
+            "message": "Event deleted successfully",
+            "id": event_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting event: {str(e)}"
+        )
+
+# HEALTH CHECK
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    try:
+        # Count total events
+        count_query = "SELECT COUNT(*) as total FROM [Event]"
+        df = db.read_query_to_df(count_query, {})
+        total_events = df.iloc[0]['total'] if len(df) > 0 else 0
+        
+        return {
+            "status": "healthy",
+            "total_events": total_events
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     import uvicorn
