@@ -12,6 +12,10 @@ export default function DashboardPage({ username, onLogout }) {
     navigate("/view_groups");
   };
 
+  const handleGoToNotifications = () => {
+    navigate("/notifications");
+  };
+
   const handleLogout = () => {
     onLogout();
     navigate("/");
@@ -59,6 +63,14 @@ export default function DashboardPage({ username, onLogout }) {
           >
             View Groups
           </button>
+
+          <button
+            onClick={handleGoToNotifications}
+            style={buttonStyle("#17a2be", "#11707f")}
+          >
+            View Notifications
+          </button>
+
 
           <button
             onClick={handleLogout}

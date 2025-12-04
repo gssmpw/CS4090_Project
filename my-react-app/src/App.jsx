@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import EventsPage from "./pages/EventsPage";
 import DashboardPage from "./pages/DashboardPage";
 import JoinLeaveGroupPage from "./pages/JoinLeaveGroupPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
   // Load token and username from localStorage on startup
@@ -66,7 +67,18 @@ function App() {
         />
         <Route
           path="/view_groups"
-          element={isLoggedIn ? <JoinLeaveGroupPage /> : <Navigate to="/" />}/>
+          element={isLoggedIn ? <JoinLeaveGroupPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/notifications"
+          element={
+            isLoggedIn ? (
+              <NotificationsPage username={username} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
       </Routes>
     </Router>
   );
