@@ -118,6 +118,29 @@ async def get_user_groups(username: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving user groups: {str(e)}"
         )
+
+@app.get("/groups/admin/{username}")
+async def get_admin_groups(username: str):
+    """
+    Get all groups where the user is an administrator.
+    """
+    try:
+        query = """
+            SELECT g.groupID, g.groupName, CAST(g.description AS NVARCHAR(MAX)) as description,
+                   (SELECT COUNT(*) FROM GroupMember WHERE groupID = g.groupID) as memberCount,
+                   (SELECT COUNT(*) FROM GroupToEvent WHERE groupID = g.groupID) as eventCount
+            FROM [Group] g
+            JOIN GroupAdmin ga ON g.groupID = ga.groupID
+            WHERE ga.username = :username
+            ORDER BY g.groupName
+        """
+        df = gm.db.read_query_to_df(query, {"username": username})
+        return df.to_dict("records")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving admin groups: {str(e)}"
+        )
     
 @app.post("/groups/create", status_code=status.HTTP_201_CREATED)
 async def create_group(group: GroupCreate):
