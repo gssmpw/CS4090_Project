@@ -2,7 +2,7 @@ import sys
 import os
 from typing import List, Dict, Any
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status,Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -34,6 +34,13 @@ class GroupResponse(BaseModel):
     groupID: int
     groupName: str
     description: str
+
+class GroupCreate(BaseModel):
+    groupName: str
+    description: str
+    adminUsername: str
+
+
 
 @app.get("/groups/", response_model=List[int])
 async def get_all_group_ids() -> List[int]:
@@ -112,6 +119,89 @@ async def get_user_groups(username: str):
             detail=f"Error retrieving user groups: {str(e)}"
         )
 
+@app.get("/groups/admin/{username}")
+async def get_admin_groups(username: str):
+    """
+    Get all groups where the user is an administrator.
+    """
+    try:
+        query = """
+            SELECT g.groupID, g.groupName, CAST(g.description AS NVARCHAR(MAX)) as description,
+                   (SELECT COUNT(*) FROM GroupMember WHERE groupID = g.groupID) as memberCount,
+                   (SELECT COUNT(*) FROM GroupToEvent WHERE groupID = g.groupID) as eventCount
+            FROM [Group] g
+            JOIN GroupAdmin ga ON g.groupID = ga.groupID
+            WHERE ga.username = :username
+            ORDER BY g.groupName
+        """
+        df = gm.db.read_query_to_df(query, {"username": username})
+        return df.to_dict("records")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving admin groups: {str(e)}"
+        )
+    
+@app.post("/groups/create", status_code=status.HTTP_201_CREATED)
+async def create_group(group: GroupCreate):
+    """
+    Create a new group with the specified admin.
+    The admin user will automatically be added as a group member and group admin.
+    """
+    try:
+        # Check if group name already exists
+        check_query = "SELECT groupID FROM [Group] WHERE groupName = :groupName"
+        existing = gm.db.read_query_to_df(check_query, {"groupName": group.groupName})
+        
+        if len(existing) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Group name already exists"
+            )
+        
+        # Get the next available groupID
+        max_id_query = "SELECT ISNULL(MAX(groupID), 0) + 1 as next_id FROM [Group]"
+        max_id_df = gm.db.read_query_to_df(max_id_query, {})
+        next_group_id = int(max_id_df.iloc[0]['next_id'])
+        
+        # Insert new group with explicit groupID
+        insert_query = """
+            INSERT INTO [Group] (groupID, groupName, description)
+            VALUES (:groupID, :groupName, :description)
+        """
+        
+        gm.db.execute_query(insert_query, {
+            "groupID": next_group_id,
+            "groupName": group.groupName,
+            "description": group.description
+        })
+        
+        # Add the admin to GroupMember table
+        gm.addGroupMember(group.adminUsername, next_group_id)
+        
+        # Add the admin to GroupAdmin table
+        admin_query = """
+            INSERT INTO GroupAdmin (username, groupID)
+            VALUES (:username, :groupID)
+        """
+        gm.db.execute_query(admin_query, {
+            "username": group.adminUsername,
+            "groupID": next_group_id
+        })
+        
+        return {
+            "groupID": next_group_id,
+            "groupName": group.groupName,
+            "description": group.description
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating group: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

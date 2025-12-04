@@ -1,72 +1,98 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
-import EventsPage from "./pages/EventsPage";
 import DashboardPage from "./pages/DashboardPage";
+import EventsPage from "./pages/EventsPage";
 import JoinLeaveGroupPage from "./pages/JoinLeaveGroupPage";
+import CreateGroupPage from "./pages/CreateGroupPage";
+import ManageGroupsPage from "./pages/ManageGroupsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
-  // Load token and username from localStorage on startup
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
-  const [username, setUsername] = useState(localStorage.getItem("username") || "");
+  const [username, setUsername] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Keep localStorage in sync when username changes
   useEffect(() => {
-    if (username) {
-      localStorage.setItem("username", username);
+    const token = localStorage.getItem("token");
+    const storedUsername = localStorage.getItem("username");
+    if (token && storedUsername) {
+      setIsAuthenticated(true);
+      setUsername(storedUsername);
     }
-  }, [username]);
+  }, []);
 
-  // Handle login from LoginPage
-  const handleLogin = (username) => {
-    setIsLoggedIn(true);
-    setUsername(username);
+  const handleLogin = (user) => {
+    setIsAuthenticated(true);
+    setUsername(user);
   };
 
-  // Handle logout (shared by all pages)
   const handleLogout = () => {
-    localStorage.removeItem("username");
+    setIsAuthenticated(false);
+    setUsername(null);
     localStorage.removeItem("token");
-    setIsLoggedIn(false);
-    setUsername("");
+    localStorage.removeItem("username");
+    sessionStorage.removeItem("user");
   };
 
   return (
     <Router>
       <Routes>
-        <Route
-          path="/"
-          element={
-            isLoggedIn ? (
-              <Navigate to="/dashboard" />
-            ) : (
-              <LoginPage onLogin={handleLogin} />
-            )
-          }
-        />
+        <Route path="/" element={<LoginPage onLogin={handleLogin} />} />
+        
         <Route
           path="/dashboard"
           element={
-            isLoggedIn ? (
+            isAuthenticated ? (
               <DashboardPage username={username} onLogout={handleLogout} />
             ) : (
               <Navigate to="/" />
             )
           }
         />
+
         <Route
           path="/events"
           element={
-            isLoggedIn ? (
-              <EventsPage username={username} onLogout={handleLogout} />
+            isAuthenticated ? (
+              <EventsPage username={username} />
             ) : (
               <Navigate to="/" />
             )
           }
         />
+
         <Route
           path="/view_groups"
+          element={
+            isAuthenticated ? (
+              <JoinLeaveGroupPage username={username} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
+        <Route
+          path="/create_group"
+          element={
+            isAuthenticated ? (
+              <CreateGroupPage username={username} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
+        <Route
+          path="/manage_groups"
+          element={
+            isAuthenticated ? (
+              <ManageGroupsPage username={username} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
           element={isLoggedIn ? <JoinLeaveGroupPage /> : <Navigate to="/" />}
         />
         <Route

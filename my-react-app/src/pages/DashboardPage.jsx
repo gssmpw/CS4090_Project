@@ -12,6 +12,14 @@ export default function DashboardPage({ username, onLogout }) {
     navigate("/view_groups");
   };
 
+  const handleManageGroups = () => {
+    navigate("/manage_groups");
+  };
+
+  const handleCreateGroup = () => {
+    navigate("/create_group");
+  };
+
   const handleGoToNotifications = () => {
     navigate("/notifications");
   };
@@ -53,6 +61,8 @@ export default function DashboardPage({ username, onLogout }) {
           <button
             onClick={handleGoToEvents}
             style={buttonStyle("#007bff", "#0056b3")}
+            onMouseOver={(e) => (e.target.style.backgroundColor = "#0056b3")}
+            onMouseOut={(e) => (e.target.style.backgroundColor = "#007bff")}
           >
             View Events
           </button>
@@ -60,8 +70,28 @@ export default function DashboardPage({ username, onLogout }) {
           <button
             onClick={handleGoToGroups}
             style={buttonStyle("#17a2b8", "#11707f")}
+            onMouseOver={(e) => (e.target.style.backgroundColor = "#11707f")}
+            onMouseOut={(e) => (e.target.style.backgroundColor = "#17a2b8")}
           >
             View Groups
+          </button>
+
+          <button
+            onClick={handleManageGroups}
+            style={buttonStyle("#28a745", "#1e7e34")}
+            onMouseOver={(e) => (e.target.style.backgroundColor = "#1e7e34")}
+            onMouseOut={(e) => (e.target.style.backgroundColor = "#28a745")}
+          >
+            Manage Groups
+          </button>
+
+          <button
+            onClick={handleCreateGroup}
+            style={buttonStyle("#6f42c1", "#5a32a3")}
+            onMouseOver={(e) => (e.target.style.backgroundColor = "#5a32a3")}
+            onMouseOut={(e) => (e.target.style.backgroundColor = "#6f42c1")}
+          >
+            Create Group
           </button>
 
           <button
@@ -75,6 +105,8 @@ export default function DashboardPage({ username, onLogout }) {
           <button
             onClick={handleLogout}
             style={buttonStyle("#dc3545", "#a71d2a")}
+            onMouseOver={(e) => (e.target.style.backgroundColor = "#a71d2a")}
+            onMouseOut={(e) => (e.target.style.backgroundColor = "#dc3545")}
           >
             Logout
           </button>
@@ -97,10 +129,6 @@ function buttonStyle(baseColor, hoverColor) {
     fontWeight: "500",
     marginBottom: "16px",
     cursor: "pointer",
-    transition: "0.2s ease",
-    ...(hoverColor && {
-      onMouseOver: (e) => (e.target.style.backgroundColor = hoverColor),
-      onMouseOut: (e) => (e.target.style.backgroundColor = baseColor),
-    }),
+    transition: "background-color 0.2s ease",
   };
 }
