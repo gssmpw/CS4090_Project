@@ -61,6 +61,36 @@ async def get_groups_by_id(groupIDs: List[int]):
             detail=f"Error retrieving group info: {str(e)}"
         )
 
+@app.post("/groups/join/{group_id}")
+async def join_group(group_id: int, username: str):
+    """
+    Add a user to a group.
+    Example call: POST /groups/join/5?username=chase
+    """
+    try:
+        gm.addGroupMember(username, group_id)
+        return {"message": f"User {username} joined group {group_id}"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error joining group: {str(e)}"
+        )
+
+
+@app.post("/groups/leave/{group_id}")
+async def leave_group(group_id: int, username: str):
+    """
+    Remove a user from a group.
+    Example call: POST /groups/leave/5?username=chase
+    """
+    try:
+        gm.removeGroupMember(username, group_id)
+        return {"message": f"User {username} left group {group_id}"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error leaving group: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

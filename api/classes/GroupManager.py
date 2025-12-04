@@ -54,3 +54,27 @@ class GroupManager:
         group_df: pd.DataFrame = self.db.read_query_to_df(query)
 
         return group_df["groupID"].tolist() if not group_df.empty else []
+
+    def addGroupMember(self, username: str, groupID: int) -> int:
+        """
+        Adds a username to the GroupMember table for the given groupID.
+
+        Args:
+            username (str): The username to add to the table
+            groupID (int): The groupID to be added to the table
+
+        Returns:
+            int: Number of rows inserted
+        """
+        try:
+            # Build a DataFrame with the required schema
+            df = pd.DataFrame([{
+                "username": username,
+                "groupID": groupID
+            }])
+
+            # Use DatabaseManager helper to insert
+            rows_inserted = self.db.send_df_to_table(df, table_name="GroupMember", if_exists="append")
+            return rows_inserted
+        except Exception as e:
+            raise Exception(f"Failed to add group member: {str(e)}")

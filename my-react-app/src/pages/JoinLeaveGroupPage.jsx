@@ -142,6 +142,13 @@ export default function JoinLeaveGroupPage() {
     }
   };
 
+  const handleLogout = () => {
+    sessionStorage.removeItem("user");
+    localStorage.removeItem("username");
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
   if (loading)
     return <p style={{ textAlign: "center", marginTop: "100px" }}>Loading groups...</p>;
 
@@ -151,27 +158,77 @@ export default function JoinLeaveGroupPage() {
     );
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#e9ecef", padding: "24px" }}>
-      <h2 style={{ textAlign: "center", color: "#212529" }}>Join or Leave Groups</h2>
-      <p style={{ textAlign: "center", color: "#495057" }}>
-        Manage your group memberships below
-      </p>
-
+    <div style={{ minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
+      {/* Header copied from EventsPage */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-          gap: "20px",
-          marginTop: "30px",
+          backgroundColor: "white",
+          borderBottom: "1px solid #ddd",
+          padding: "16px 24px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        {groups.map((group) => (
-          <GroupTile
-            key={group.groupID}
-            group={group}
-            onJoinLeave={handleJoinLeave}
-          />
-        ))}
+        <h1 style={{ margin: 0, fontSize: "24px" }}>My Groups</h1>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <span style={{ color: "#666", fontSize: "14px" }}>
+            Welcome, {user.Fname} {user.Lname}
+          </span>
+          <button
+            onClick={() => navigate("/dashboard")}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#dc3545",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
+        <h2 style={{ textAlign: "center", color: "#212529" }}>Join or Leave Groups</h2>
+        <p style={{ textAlign: "center", color: "#495057" }}>
+          Manage your group memberships below
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: "20px",
+            marginTop: "30px",
+          }}
+        >
+          {groups.map((group) => (
+            <GroupTile
+              key={group.groupID}
+              group={group}
+              onJoinLeave={handleJoinLeave}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
