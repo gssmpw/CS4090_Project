@@ -56,3 +56,21 @@ class DatabaseManager:
             return rows_inserted if rows_inserted else len(df)
         except Exception as e:
             raise Exception(f"DataFrame insertion failed: {str(e)}")
+    def execute_query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Execute a SQL statement that does not return a result set
+        (e.g., INSERT, UPDATE, DELETE).
+
+        Args:
+            sql (str): The SQL statement to execute.
+            params (Optional[Dict[str, Any]]): Parameters to bind to the SQL statement.
+
+        Returns:
+            None
+        """
+        try:
+            with self.engine.begin() as conn:  # begin() ensures commit/rollback
+                conn.execute(text(sql), params or {})
+        except Exception as e:
+            raise Exception(f"Query execution failed: {str(e)}")
+

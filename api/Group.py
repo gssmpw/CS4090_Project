@@ -91,6 +91,27 @@ async def leave_group(group_id: int, username: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error leaving group: {str(e)}"
         )
+    
+@app.get("/groups/user/{username}")
+async def get_user_groups(username: str):
+    """
+    Get all groups a user is a member of.
+    """
+    try:
+        query = """
+            SELECT g.groupID, g.groupName, CAST(g.description AS NVARCHAR(MAX)) as description
+            FROM [Group] g
+            JOIN GroupMember gm ON g.groupID = gm.groupID
+            WHERE gm.username = :username
+        """
+        df = gm.db.read_query_to_df(query, {"username": username})
+        return df.to_dict("records")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving user groups: {str(e)}"
+        )
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -78,3 +78,21 @@ class GroupManager:
             return rows_inserted
         except Exception as e:
             raise Exception(f"Failed to add group member: {str(e)}")
+        
+    def removeGroupMember(self, username: str, groupID: int) -> None:
+        """
+        Removes a username from the GroupMember table for the given groupID.
+
+        Args:
+            username (str): The username to remove from the table
+            groupID (int): The groupID to remove the user from
+
+        Returns:
+            None
+        """
+        try:
+            delete_query = "DELETE FROM GroupMember WHERE username = :username AND groupID = :groupID"
+            self.db.execute_query(delete_query, {"username": username, "groupID": groupID})
+        except Exception as e:
+            raise Exception(f"Failed to remove group member: {str(e)}")
+

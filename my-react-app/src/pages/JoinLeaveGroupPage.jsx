@@ -74,7 +74,7 @@ export default function JoinLeaveGroupPage() {
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const username = user.username;
 
-  // Fetch all groups on mount
+  // Fetch all groups and user groups on mount
   useEffect(() => {
     if (!username) {
       navigate("/");
@@ -87,6 +87,7 @@ export default function JoinLeaveGroupPage() {
     setLoading(true);
     setError("");
     try {
+      // Get all group IDs
       const idsRes = await fetch("http://localhost:8003/groups/");
       if (!idsRes.ok) throw new Error("Failed to fetch group IDs");
       const groupIDs = await idsRes.json();
@@ -97,6 +98,7 @@ export default function JoinLeaveGroupPage() {
         return;
       }
 
+      // Get group info
       const infoRes = await fetch("http://localhost:8003/groups/by_id/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,9 +107,16 @@ export default function JoinLeaveGroupPage() {
       if (!infoRes.ok) throw new Error("Failed to fetch group info");
       const groupInfo = await infoRes.json();
 
+      // Get groups the user is already in
+      const userRes = await fetch(`http://localhost:8003/groups/user/${username}`);
+      if (!userRes.ok) throw new Error("Failed to fetch user groups");
+      const userGroups = await userRes.json();
+      const userGroupIDs = userGroups.map((g) => g.groupID);
+
+      // Mark joined status
       const updatedGroups = groupInfo.map((group) => ({
         ...group,
-        joined: group.members?.includes(username) || false,
+        joined: userGroupIDs.includes(group.groupID),
       }));
 
       setGroups(updatedGroups);
@@ -121,20 +130,24 @@ export default function JoinLeaveGroupPage() {
   const handleJoinLeave = async (groupID, joined) => {
     try {
       const endpoint = joined
-        ? `http://localhost:8003/groups/leave/${groupID}`
-        : `http://localhost:8003/groups/join/${groupID}`;
+        ? `http://localhost:8003/groups/leave/${groupID}?username=${encodeURIComponent(
+            username
+          )}`
+        : `http://localhost:8003/groups/join/${groupID}?username=${encodeURIComponent(
+            username
+          )}`;
 
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
       });
 
       if (!res.ok)
         throw new Error(joined ? "Failed to leave group" : "Failed to join group");
 
       setGroups((prev) =>
-        prev.map((g) => (g.groupID === groupID ? { ...g, joined: !joined } : g))
+        prev.map((g) =>
+          g.groupID === groupID ? { ...g, joined: !joined } : g
+        )
       );
     } catch (err) {
       console.error(err);
@@ -150,11 +163,15 @@ export default function JoinLeaveGroupPage() {
   };
 
   if (loading)
-    return <p style={{ textAlign: "center", marginTop: "100px" }}>Loading groups...</p>;
+    return (
+      <p style={{ textAlign: "center", marginTop: "100px" }}>Loading groups...</p>
+    );
 
   if (error)
     return (
-      <p style={{ textAlign: "center", marginTop: "100px", color: "red" }}>{error}</p>
+      <p style={{ textAlign: "center", marginTop: "100px", color: "red" }}>
+        {error}
+      </p>
     );
 
   return (
@@ -208,7 +225,9 @@ export default function JoinLeaveGroupPage() {
 
       {/* Main Content */}
       <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
-        <h2 style={{ textAlign: "center", color: "#212529" }}>Join or Leave Groups</h2>
+        <h2 style={{ textAlign: "center", color: "#212529" }}>
+          Join or Leave Groups
+        </h2>
         <p style={{ textAlign: "center", color: "#495057" }}>
           Manage your group memberships below
         </p>
