@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from classes.SQLManager import DatabaseManager
+import pandas as pd
 
 # Create FastAPI app for User microservice
 app = FastAPI(title="User Authentication Service", version="1.0.0")
@@ -90,17 +91,19 @@ async def register(user: UserCreate):
         if len(existing) > 0:
             raise HTTPException(status_code=409, detail="Username already exists")
         
-        # Create DataFrame with new user data
-        user_df = pd.DataFrame([{
+        # Insert new user using execute_query
+        insert_query = """
+            INSERT INTO [User] (username, password, Fname, Lname, isAdmin)
+            VALUES (:username, :password, :Fname, :Lname, :isAdmin)
+        """
+        
+        db.execute_query(insert_query, {
             "username": user.username,
             "password": user.password,
             "Fname": user.Fname,
             "Lname": user.Lname,
             "isAdmin": False
-        }])
-        
-        # Insert using send_df_to_table
-        db.send_df_to_table(user_df, "User", if_exists='append')
+        })
         
         return {
             "username": user.username,
@@ -116,7 +119,6 @@ async def register(user: UserCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error during registration: {str(e)}"
         )
-
 # ============================================
 # RUN THE MICROSERVICE
 # ============================================
