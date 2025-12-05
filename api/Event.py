@@ -7,9 +7,19 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+from classes.NotificationManager import NotificationManager
 
 from classes.SQLManager import DatabaseManager
+
+# Initialize NotificationManager with DB credentials
+nm = NotificationManager(
+    server="cs4090.database.windows.net,1433",
+    database="CS4090Project",
+    username="DevUser",
+    password="CSProject4090!"
+)
+
 
 db = DatabaseManager(
     server="cs4090.database.windows.net,1433",
@@ -440,6 +450,38 @@ async def create_event_for_group(group_id: int, event: EventCreateForGroup):
             "eventID": next_event_id,
             "groupID": group_id
         })
+
+        # Send out notifications
+        try:
+            nm = NotificationManager(
+                server="cs4090.database.windows.net,1433",
+                database="CS4090Project",
+                username="DevUser",
+                password="CSProject4090!"
+            )
+
+            # Fetch all group members
+            members_query = "SELECT username FROM GroupMember WHERE groupID = :group_id"
+            members_df = db.read_query_to_df(members_query, {"group_id": group_id})
+            member_usernames = members_df["username"].tolist() if not members_df.empty else []
+
+            # Current timestamp
+            created_at = datetime.now(timezone.utc)
+
+            # Create notifications
+            nm.createNotification(
+                usernames=member_usernames,
+                description=event.description,
+                eventID=next_event_id,
+                created_at=created_at,
+                eventDate=datetime.fromisoformat(event.date),
+                isRead=0
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error sending notifications: {str(e)}"
+            )
         
         return {
             "eventID": next_event_id,
@@ -455,6 +497,71 @@ async def create_event_for_group(group_id: int, event: EventCreateForGroup):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating event: {str(e)}"
         )
+
+# RESPONSE MODEL for notifications
+class NotificationResponse(BaseModel):
+    notificationID: Optional[int] = None
+    username: str
+    description: str
+    eventID: Optional[int] = None
+    notificationTimestamp: datetime
+    eventDate: datetime
+    isRead: int
+
+@app.get("/notifications/{username}", response_model=List[NotificationResponse])
+async def get_notifications(username: str):
+    """
+    Get all notifications for a specific user.
+    """
+    try:
+        notifications = nm.getNotificationsByUsername(username)
+        return notifications
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving notifications: {str(e)}"
+        )
+
+def send_out_notifications(
+    group_id: int,
+    event_id: int,
+    description: str,
+    event_date: str
+):
+    """
+    Send notifications to all group members and group admins
+    when a new event is created.
+    """
+    try:
+        # Fetch all usernames in the group
+        members_query = """
+            SELECT username FROM GroupMember WHERE groupID = :group_id
+        """
+        df = nm.db.read_query_to_df(members_query, {"group_id": group_id})
+        member_usernames = df["username"].tolist() if not df.empty else []
+
+        # Current timestamp
+        created_at = datetime.utcnow()
+
+        # Convert eventDate string to datetime if needed
+        event_dt = (
+            datetime.fromisoformat(event_date)
+            if isinstance(event_date, str)
+            else event_date
+        )
+
+        # Create notifications
+        nm.createNotification(
+            usernames=member_usernames,
+            description=description,
+            eventID=event_id,
+            created_at=created_at,
+            eventDate=event_dt,
+            isRead=0
+        )
+    except Exception as e:
+        raise Exception(f"Failed to send notifications: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn
