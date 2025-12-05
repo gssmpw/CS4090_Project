@@ -38,7 +38,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<LoginPage onLogin={handleLogin} />} />
-        
+
         <Route
           path="/dashboard"
           element={
@@ -93,12 +93,11 @@ function App() {
             )
           }
         />
-          element={isLoggedIn ? <JoinLeaveGroupPage /> : <Navigate to="/" />}
-        />
+
         <Route
           path="/notifications"
           element={
-            isLoggedIn ? (
+            isAuthenticated ? (
               <NotificationsPage username={username} onLogout={handleLogout} />
             ) : (
               <Navigate to="/" />
