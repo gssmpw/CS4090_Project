@@ -23,9 +23,8 @@ class NotificationManager:
     def createNotification(
         self,
         usernames: List[str],
-        title: str,
         description: str,
-        groupID: int,
+        eventID: int,
         created_at: datetime,
         eventDate: datetime,
         isRead: int = 0
@@ -39,9 +38,8 @@ class NotificationManager:
 
             df = pd.DataFrame([{
                 "username": u,
-                "title": title,
                 "description": description,
-                "groupID": groupID,
+                "event": eventID,
                 "notificationTimestamp": created_at,   # datetime object
                 "eventDate": eventDate,    # datetime object
                 "isRead": isRead
