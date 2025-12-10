@@ -3,9 +3,8 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 import sys
 import os
-import pandas as pd
 
-# Add api folder to sys.path
+# Add api folder to sys.path,  was a major issue with import issues in the original file when used in this
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "api"))
 
 from Group import app, gm
@@ -78,10 +77,9 @@ def test_leave_group_failure(client):
 # GET /groups/user/{username}
 @patch("Group.gm.db")
 def test_get_user_groups_success(mock_db, client):
-    # Mock a DataFrame-like object with .to_dict()
-    df_mock = MagicMock()
-    df_mock.to_dict.return_value = [{"groupID": 1, "groupName": "G", "description": "D"}]
-    mock_db.read_query_to_df.return_value = df_mock
+    mock_df = MagicMock()
+    mock_df.to_dict.return_value = [{"groupID": 1, "groupName": "G", "description": "D"}]
+    mock_db.read_query_to_df.return_value = mock_df
 
     res = client.get("/groups/user/chase")
     assert res.status_code == 200
@@ -100,11 +98,11 @@ def test_get_user_groups_failure(mock_db, client):
 # GET /groups/admin/{username}
 @patch("Group.gm.db")
 def test_get_admin_groups_success(mock_db, client):
-    df_mock = MagicMock()
-    df_mock.to_dict.return_value = [
+    mock_df = MagicMock()
+    mock_df.to_dict.return_value = [
         {"groupID": 1, "groupName": "Admins", "description": "Admin G", "memberCount": 5, "eventCount": 2}
     ]
-    mock_db.read_query_to_df.return_value = df_mock
+    mock_db.read_query_to_df.return_value = mock_df
 
     res = client.get("/groups/admin/chase")
     assert res.status_code == 200
@@ -123,9 +121,9 @@ def test_get_admin_groups_failure(mock_db, client):
 # POST /groups/create
 @patch("Group.gm.db")
 def test_create_group_success(mock_db, client):
-    # Group name check returns empty, next group ID returns 10
+    # group does not already exist
     mock_db.read_query_to_df.side_effect = [
-        MagicMock(__len__=MagicMock(return_value=0)),                  # name not used
+        MagicMock(__len__=MagicMock(return_value=0)),  # name not used
         MagicMock(iloc=MagicMock(__getitem__=MagicMock(return_value={"next_id": 10})))  # next groupID
     ]
     mock_db.execute_query = MagicMock()
