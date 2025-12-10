@@ -57,6 +57,9 @@ class EventCreateForGroup(BaseModel):
     date: str
     description: str
 
+class RSVPRequest(BaseModel):
+    username: str
+
 # EVENT QUERY ENDPOINTS
 
 @app.get("/events/user/{username}")
@@ -186,7 +189,7 @@ async def get_event_details(event_id: int) -> EventDetailResponse:
             detail=f"Error retrieving event details: {str(e)}"
         )
 
-# EVENT COMMAND ENDPOINTS (from backend.py)
+# EVENT COMMAND ENDPOINTS
 
 @app.post("/events/{username}", status_code=status.HTTP_201_CREATED)
 async def create_event(username: str, event: EventCreate):
@@ -230,6 +233,67 @@ async def create_event(username: str, event: EventCreate):
             "date": event.date,
             "time": event.time,
             "user_id": username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating event: {str(e)}"
+        )
+
+@app.post("/events/group/{group_id}", status_code=status.HTTP_201_CREATED)
+async def create_event_for_group(group_id: int, event: EventCreateForGroup):
+    """
+    Create a new event for a specific group.
+    """
+    try:
+        # Verify group exists
+        group_check = """
+            SELECT groupID FROM [Group] WHERE groupID = :group_id
+        """
+        group_df = db.read_query_to_df(group_check, {"group_id": group_id})
+        
+        if len(group_df) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Group not found"
+            )
+        
+        # Get the next available eventID
+        max_id_query = "SELECT ISNULL(MAX(eventID), 0) + 1 as next_id FROM [Event]"
+        max_id_df = db.read_query_to_df(max_id_query, {})
+        next_event_id = int(max_id_df.iloc[0]['next_id'])
+        
+        # Insert new event with explicit eventID
+        insert_query = """
+            INSERT INTO [Event] (eventID, date, description)
+            VALUES (:eventID, :date, :description)
+        """
+        
+        db.execute_query(insert_query, {
+            "eventID": next_event_id,
+            "date": event.date,
+            "description": event.description
+        })
+        
+        # Link event to group in GroupToEvent table
+        link_query = """
+            INSERT INTO GroupToEvent (eventID, groupID)
+            VALUES (:eventID, :groupID)
+        """
+        
+        db.execute_query(link_query, {
+            "eventID": next_event_id,
+            "groupID": group_id
+        })
+        
+        return {
+            "eventID": next_event_id,
+            "date": event.date,
+            "description": event.description,
+            "groupID": group_id
         }
         
     except HTTPException:
@@ -349,7 +413,13 @@ async def delete_event(username: str, event_id: int):
                 detail="Event not found"
             )
         
-        # Delete from GroupToEvent first (if exists)
+        # Delete from RSVP first (if exists)
+        delete_rsvp = """
+            DELETE FROM RSVP WHERE eventID = :event_id
+        """
+        db.execute_query(delete_rsvp, {"event_id": event_id})
+        
+        # Delete from GroupToEvent (if exists)
         delete_mapping = """
             DELETE FROM GroupToEvent WHERE eventID = :event_id
         """
@@ -374,6 +444,123 @@ async def delete_event(username: str, event_id: int):
             detail=f"Error deleting event: {str(e)}"
         )
 
+# RSVP ENDPOINTS
+
+@app.get("/rsvp/{event_id}/{username}")
+async def check_rsvp(event_id: int, username: str):
+    """
+    Check if a user has RSVPed to an event.
+    """
+    try:
+        query = """
+            SELECT username FROM RSVP
+            WHERE eventID = :event_id AND username = :username
+        """
+        df = db.read_query_to_df(query, {"event_id": event_id, "username": username})
+        
+        return {
+            "eventID": event_id,
+            "username": username,
+            "isRSVPed": len(df) > 0
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking RSVP: {str(e)}"
+        )
+
+@app.post("/rsvp/{event_id}", status_code=status.HTTP_201_CREATED)
+async def rsvp_to_event(event_id: int, request: RSVPRequest):
+    """
+    RSVP to an event.
+    """
+    try:
+        # Check if already RSVPed
+        check_query = """
+            SELECT username FROM RSVP
+            WHERE eventID = :event_id AND username = :username
+        """
+        existing = db.read_query_to_df(check_query, {
+            "event_id": event_id,
+            "username": request.username
+        })
+        
+        if len(existing) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Already RSVPed to this event"
+            )
+        
+        # Insert RSVP
+        insert_query = """
+            INSERT INTO RSVP (eventID, username)
+            VALUES (:event_id, :username)
+        """
+        db.execute_query(insert_query, {
+            "event_id": event_id,
+            "username": request.username
+        })
+        
+        return {
+            "message": "RSVP successful",
+            "eventID": event_id,
+            "username": request.username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating RSVP: {str(e)}"
+        )
+
+@app.delete("/rsvp/{event_id}/{username}")
+async def un_rsvp_from_event(event_id: int, username: str):
+    """
+    Remove RSVP from an event.
+    """
+    try:
+        # Check if RSVP exists
+        check_query = """
+            SELECT username FROM RSVP
+            WHERE eventID = :event_id AND username = :username
+        """
+        existing = db.read_query_to_df(check_query, {
+            "event_id": event_id,
+            "username": username
+        })
+        
+        if len(existing) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="RSVP not found"
+            )
+        
+        # Delete RSVP
+        delete_query = """
+            DELETE FROM RSVP
+            WHERE eventID = :event_id AND username = :username
+        """
+        db.execute_query(delete_query, {
+            "event_id": event_id,
+            "username": username
+        })
+        
+        return {
+            "message": "RSVP removed successfully",
+            "eventID": event_id,
+            "username": username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error removing RSVP: {str(e)}"
+        )
+
 # HEALTH CHECK
 
 @app.get("/health")
@@ -394,67 +581,6 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e)
         }
-    
-@app.post("/events/group/{group_id}", status_code=status.HTTP_201_CREATED)
-async def create_event_for_group(group_id: int, event: EventCreateForGroup):
-    """
-    Create a new event for a specific group.
-    """
-    try:
-        # Verify group exists
-        group_check = """
-            SELECT groupID FROM [Group] WHERE groupID = :group_id
-        """
-        group_df = db.read_query_to_df(group_check, {"group_id": group_id})
-        
-        if len(group_df) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Group not found"
-            )
-        
-        # Get the next available eventID
-        max_id_query = "SELECT ISNULL(MAX(eventID), 0) + 1 as next_id FROM [Event]"
-        max_id_df = db.read_query_to_df(max_id_query, {})
-        next_event_id = int(max_id_df.iloc[0]['next_id'])
-        
-        # Insert new event with explicit eventID
-        insert_query = """
-            INSERT INTO [Event] (eventID, date, description)
-            VALUES (:eventID, :date, :description)
-        """
-        
-        db.execute_query(insert_query, {
-            "eventID": next_event_id,
-            "date": event.date,
-            "description": event.description
-        })
-        
-        # Link event to group in GroupToEvent table
-        link_query = """
-            INSERT INTO GroupToEvent (eventID, groupID)
-            VALUES (:eventID, :groupID)
-        """
-        
-        db.execute_query(link_query, {
-            "eventID": next_event_id,
-            "groupID": group_id
-        })
-        
-        return {
-            "eventID": next_event_id,
-            "date": event.date,
-            "description": event.description,
-            "groupID": group_id
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating event: {str(e)}"
-        )
 
 if __name__ == "__main__":
     import uvicorn
