@@ -591,8 +591,6 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e)
         }
-<<<<<<< HEAD
-=======
     
 @app.post("/events/group/{group_id}", status_code=status.HTTP_201_CREATED)
 async def create_event_for_group(group_id: int, event: EventCreateForGroup):
@@ -686,7 +684,6 @@ async def create_event_for_group(group_id: int, event: EventCreateForGroup):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating event: {str(e)}"
         )
->>>>>>> fc7bb257f25937434b3e126a1d82bdb4ae76f273
 
 # RESPONSE MODEL for notifications
 class NotificationResponse(BaseModel):
