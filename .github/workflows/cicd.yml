@@ -31,4 +31,4 @@ jobs:
 
       # Run pytest inside the conda environment
       - name: Run tests
-        run: conda run -n CS4090Project pytest --maxfail=1 --disable-warnings -q
+        run: conda run -n CS4090Project pytest --disable-warnings -q
