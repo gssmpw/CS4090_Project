@@ -1,0 +1,35 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repo
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Set up Miniconda
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: 3.11
+          activate-environment: CS4090Project
+          environment-file: environment.yml
+          use-mamba: true  # faster dependency resolution
+
+      # Show Python version (sanity check)
+      - name: Check Python version
+        run: python --version
+
+      # Run pytest
+      - name: Run tests
+        run: |
+          pytest --maxfail=1 --disable-warnings -q

@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-pydantic
-typing-extensions
-sqlalchemy
-pyodbc
-python-dotenv
-pandas 
-datetime
