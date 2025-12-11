@@ -13,9 +13,11 @@ jobs:
       id-token: write
 
     steps:
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. Set up Miniconda
       - name: Set up Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -23,14 +25,15 @@ jobs:
           python-version: 3.11
           use-mamba: true
 
-      - name: Create Conda environment and install requirements
-        run: |
-          conda create -n myenv python=3.11 pip -y
-          conda run -n myenv pip install -r requirements.txt
+      # 3. Create Conda environment from environment.yml
+      - name: Create Conda environment
+        run: conda env create -f environment.yml
 
-      - name: Run basic tests
+      # 4. Run basic tests
+      - name: Run tests
         run: conda run -n myenv pytest -q
 
+      # 5. Run tests with coverage
       - name: Run tests with coverage
         run: |
           conda run -n myenv pytest -q \
@@ -39,12 +42,14 @@ jobs:
             --cov-report=xml \
             --cov-report=html
 
-      - name: Prepare the webpage
+      # 6. Prepare coverage artifacts for Pages
+      - name: Prepare coverage artifacts
         run: |
-          mkdir sites
+          mkdir -p sites
           mv htmlcov sites/
           mv coverage.xml sites/
 
+      # 7. Upload the artifacts
       - name: Upload the artifacts
         uses: actions/upload-pages-artifact@v4
         with:
@@ -56,6 +61,7 @@ jobs:
     permissions:
       pages: write
       id-token: write
+
     steps:
       - name: Deploy the artifacts
         uses: actions/deploy-pages@v4
