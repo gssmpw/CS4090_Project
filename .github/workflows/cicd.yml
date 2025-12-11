@@ -23,17 +23,17 @@ jobs:
           python-version: 3.11
           use-mamba: true
 
-      - name: Create environment from file
+      - name: Create Conda environment and install requirements
         run: |
-          conda create --name myenv --file requirements.txt
-          conda activate myenv
+          conda create -n myenv python=3.11 pip -y
+          conda run -n myenv pip install -r requirements.txt
 
       - name: Run basic tests
-        run: pytest -q
+        run: conda run -n myenv pytest -q
 
       - name: Run tests with coverage
         run: |
-          pytest -q \
+          conda run -n myenv pytest -q \
             --cov=. \
             --cov-report=term \
             --cov-report=xml \
@@ -45,7 +45,7 @@ jobs:
           mv htmlcov sites/
           mv coverage.xml sites/
 
-      - name: upload the artifacts
+      - name: Upload the artifacts
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./sites
@@ -57,5 +57,5 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - name: deploy the artifacts
+      - name: Deploy the artifacts
         uses: actions/deploy-pages@v4
