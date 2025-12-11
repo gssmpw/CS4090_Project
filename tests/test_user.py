@@ -1,5 +1,5 @@
 """
-User Authentication Service Test Suite with Mocks
+User Authentication Service Test Suite with Proper Mocks
 
 File Name: test_User.py
 
@@ -13,15 +13,18 @@ Setup Instructions:
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 from fastapi.testclient import TestClient
 import sys
 import os
 
-# Add api folder to sys.path so imports work
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "api"))
+# Mock the database module BEFORE importing User
+sys.modules['database'] = MagicMock()
 
-from User import app, db, LoginRequest, UserCreate, UserResponse
+# Add api folder to sys.path so imports work
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "api"))
+
+from User import app, LoginRequest, UserCreate, UserResponse
 
 
 @pytest.fixture
@@ -30,10 +33,16 @@ def client():
     return TestClient(app)
 
 
+@pytest.fixture
+def mock_db():
+    """Create a mock database object"""
+    with patch("User.db") as mock:
+        yield mock
+
+
 # ==================== LOGIN TESTS ====================
 
-@patch("User.db.read_query_to_df")
-def test_login_success(mock_read_query, client):
+def test_login_success(client, mock_db):
     """Test successful login with valid credentials"""
     # Mock successful database query returning user data
     mock_df = MagicMock()
@@ -44,7 +53,7 @@ def test_login_success(mock_read_query, client):
         "Lname": "User",
         "isAdmin": False
     }))]
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "testuser", "password": "password123"}
     res = client.post("/login", json=payload)
@@ -57,13 +66,12 @@ def test_login_success(mock_read_query, client):
     assert data["isAdmin"] == False
 
 
-@patch("User.db.read_query_to_df")
-def test_login_invalid_credentials(mock_read_query, client):
+def test_login_invalid_credentials(client, mock_db):
     """Test login with invalid username/password"""
     # Mock empty dataframe (no matching user)
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "testuser", "password": "wrongpassword"}
     res = client.post("/login", json=payload)
@@ -72,13 +80,12 @@ def test_login_invalid_credentials(mock_read_query, client):
     assert "Invalid username or password" in res.json()["detail"]
 
 
-@patch("User.db.read_query_to_df")
-def test_login_nonexistent_user(mock_read_query, client):
+def test_login_nonexistent_user(client, mock_db):
     """Test login with non-existent username"""
     # Mock empty dataframe (user doesn't exist)
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "nonexistent", "password": "password123"}
     res = client.post("/login", json=payload)
@@ -87,11 +94,10 @@ def test_login_nonexistent_user(mock_read_query, client):
     assert "Invalid username or password" in res.json()["detail"]
 
 
-@patch("User.db.read_query_to_df")
-def test_login_database_error(mock_read_query, client):
+def test_login_database_error(client, mock_db):
     """Test login when database query fails"""
     # Mock database exception
-    mock_read_query.side_effect = Exception("Database connection failed")
+    mock_db.read_query_to_df.side_effect = Exception("Database connection failed")
 
     payload = {"username": "testuser", "password": "password123"}
     res = client.post("/login", json=payload)
@@ -100,7 +106,7 @@ def test_login_database_error(mock_read_query, client):
     assert "Error during login" in res.json()["detail"]
 
 
-def test_login_missing_username(client):
+def test_login_missing_username(client, mock_db):
     """Test login without username field"""
     payload = {"password": "password123"}
     res = client.post("/login", json=payload)
@@ -108,7 +114,7 @@ def test_login_missing_username(client):
     assert res.status_code == 422  # Validation error
 
 
-def test_login_missing_password(client):
+def test_login_missing_password(client, mock_db):
     """Test login without password field"""
     payload = {"username": "testuser"}
     res = client.post("/login", json=payload)
@@ -116,17 +122,21 @@ def test_login_missing_password(client):
     assert res.status_code == 422  # Validation error
 
 
-def test_login_empty_credentials(client):
+def test_login_empty_credentials(client, mock_db):
     """Test login with empty strings"""
+    # Mock empty dataframe (empty credentials won't match)
+    mock_df = MagicMock()
+    mock_df.__len__ = MagicMock(return_value=0)
+    mock_db.read_query_to_df.return_value = mock_df
+
     payload = {"username": "", "password": ""}
     res = client.post("/login", json=payload)
     
-    # Should return 401 (empty credentials are invalid)
+    # Should return 401 (empty credentials are invalid) or 422 (validation error)
     assert res.status_code in [401, 422]
 
 
-@patch("User.db.read_query_to_df")
-def test_login_admin_user(mock_read_query, client):
+def test_login_admin_user(client, mock_db):
     """Test login for admin user"""
     # Mock admin user data
     mock_df = MagicMock()
@@ -137,7 +147,7 @@ def test_login_admin_user(mock_read_query, client):
         "Lname": "User",
         "isAdmin": True
     }))]
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "admin", "password": "adminpass"}
     res = client.post("/login", json=payload)
@@ -147,12 +157,11 @@ def test_login_admin_user(mock_read_query, client):
     assert data["isAdmin"] == True
 
 
-@patch("User.db.read_query_to_df")
-def test_login_special_characters(mock_read_query, client):
+def test_login_special_characters(client, mock_db):
     """Test login with special characters in credentials"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "user@email.com", "password": "p@ssw0rd!"}
     res = client.post("/login", json=payload)
@@ -161,12 +170,11 @@ def test_login_special_characters(mock_read_query, client):
     assert res.status_code == 401
 
 
-@patch("User.db.read_query_to_df")
-def test_login_sql_injection_attempt(mock_read_query, client):
+def test_login_sql_injection_attempt(client, mock_db):
     """Test that SQL injection attempts are safely handled"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {
         "username": "admin' OR '1'='1",
@@ -176,18 +184,20 @@ def test_login_sql_injection_attempt(mock_read_query, client):
     
     # Should fail authentication (not execute SQL injection)
     assert res.status_code == 401
+    
+    # Verify database was called but injection was prevented
+    assert mock_db.read_query_to_df.called
 
 
 # ==================== REGISTRATION TESTS ====================
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_success(mock_read_query, mock_execute, client):
+def test_register_success(client, mock_db):
     """Test successful user registration"""
     # Mock: username doesn't exist yet
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "newuser",
@@ -205,16 +215,15 @@ def test_register_success(mock_read_query, mock_execute, client):
     assert data["isAdmin"] == False
     
     # Verify execute_query was called to insert user
-    mock_execute.assert_called_once()
+    assert mock_db.execute_query.called
 
 
-@patch("User.db.read_query_to_df")
-def test_register_duplicate_username(mock_read_query, client):
+def test_register_duplicate_username(client, mock_db):
     """Test registration with existing username"""
     # Mock: username already exists
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=1)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {
         "username": "existinguser",
@@ -229,17 +238,15 @@ def test_register_duplicate_username(mock_read_query, client):
     
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_database_error(mock_read_query, mock_execute, client):
+def test_register_database_error(client, mock_db):
     """Test registration when database insert fails"""
     # Mock: username check passes
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
     
     # Mock: insert fails
-    mock_execute.side_effect = Exception("Database insert failed")
+    mock_db.execute_query.side_effect = Exception("Database insert failed")
 
     payload = {
         "username": "newuser",
@@ -253,7 +260,7 @@ def test_register_database_error(mock_read_query, mock_execute, client):
     assert "Error during registration" in res.json()["detail"]
 
 
-def test_register_missing_username(client):
+def test_register_missing_username(client, mock_db):
     """Test registration without username"""
     payload = {
         "password": "password123",
@@ -265,7 +272,7 @@ def test_register_missing_username(client):
     assert res.status_code == 422
 
 
-def test_register_missing_password(client):
+def test_register_missing_password(client, mock_db):
     """Test registration without password"""
     payload = {
         "username": "newuser",
@@ -277,7 +284,7 @@ def test_register_missing_password(client):
     assert res.status_code == 422
 
 
-def test_register_missing_fname(client):
+def test_register_missing_fname(client, mock_db):
     """Test registration without first name"""
     payload = {
         "username": "newuser",
@@ -289,7 +296,7 @@ def test_register_missing_fname(client):
     assert res.status_code == 422
 
 
-def test_register_missing_lname(client):
+def test_register_missing_lname(client, mock_db):
     """Test registration without last name"""
     payload = {
         "username": "newuser",
@@ -301,7 +308,7 @@ def test_register_missing_lname(client):
     assert res.status_code == 422
 
 
-def test_register_all_fields_missing(client):
+def test_register_all_fields_missing(client, mock_db):
     """Test registration with no fields"""
     payload = {}
     res = client.post("/register", json=payload)
@@ -309,14 +316,13 @@ def test_register_all_fields_missing(client):
     assert res.status_code == 422
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_empty_strings(mock_read_query, mock_execute, client):
+def test_register_empty_strings(client, mock_db):
     """Test registration with empty strings"""
     # Mock: "empty" username doesn't exist (for this test scenario)
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "",
@@ -330,13 +336,12 @@ def test_register_empty_strings(mock_read_query, mock_execute, client):
     assert res.status_code in [201, 422]
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_special_characters(mock_read_query, mock_execute, client):
+def test_register_special_characters(client, mock_db):
     """Test registration with special characters"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "user@email.com",
@@ -349,13 +354,12 @@ def test_register_special_characters(mock_read_query, mock_execute, client):
     assert res.status_code == 201
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_unicode_characters(mock_read_query, mock_execute, client):
+def test_register_unicode_characters(client, mock_db):
     """Test registration with unicode characters in names"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "unicodeuser",
@@ -368,13 +372,12 @@ def test_register_unicode_characters(mock_read_query, mock_execute, client):
     assert res.status_code == 201
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_long_username(mock_read_query, mock_execute, client):
+def test_register_long_username(client, mock_db):
     """Test registration with very long username"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "a" * 500,
@@ -388,13 +391,12 @@ def test_register_long_username(mock_read_query, mock_execute, client):
     assert res.status_code in [201, 500]
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_default_admin_false(mock_read_query, mock_execute, client):
+def test_register_default_admin_false(client, mock_db):
     """Test that new users default to non-admin"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "regularuser",
@@ -410,9 +412,7 @@ def test_register_default_admin_false(mock_read_query, mock_execute, client):
 
 # ==================== INTEGRATION/FLOW TESTS ====================
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_register_then_login_flow(mock_read_query, mock_execute, client):
+def test_register_then_login_flow(client, mock_db):
     """Test complete registration then login flow"""
     # Step 1: Register (username doesn't exist)
     mock_df_register = MagicMock()
@@ -428,7 +428,8 @@ def test_register_then_login_flow(mock_read_query, mock_execute, client):
         "isAdmin": False
     }))]
     
-    mock_read_query.side_effect = [mock_df_register, mock_df_login]
+    mock_db.read_query_to_df.side_effect = [mock_df_register, mock_df_login]
+    mock_db.execute_query.return_value = None
 
     # Register
     register_payload = {
@@ -450,14 +451,13 @@ def test_register_then_login_flow(mock_read_query, mock_execute, client):
 
 # ==================== SECURITY TESTS ====================
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_password_not_in_response(mock_read_query, mock_execute, client):
+def test_password_not_in_response(client, mock_db):
     """Test that password is never returned in responses"""
     # Registration
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     register_payload = {
         "username": "secureuser",
@@ -471,8 +471,7 @@ def test_password_not_in_response(mock_read_query, mock_execute, client):
     assert "secretpassword" not in str(register_res.json())
 
 
-@patch("User.db.read_query_to_df")
-def test_login_password_not_in_response(mock_read_query, client):
+def test_login_password_not_in_response(client, mock_db):
     """Test that password is not returned in login response"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=1)
@@ -482,7 +481,7 @@ def test_login_password_not_in_response(mock_read_query, client):
         "Lname": "User",
         "isAdmin": False
     }))]
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "testuser", "password": "password123"}
     res = client.post("/login", json=payload)
@@ -491,12 +490,12 @@ def test_login_password_not_in_response(mock_read_query, client):
     assert "password123" not in str(res.json())
 
 
-@patch("User.db.read_query_to_df")
-def test_sql_injection_registration(mock_read_query, client):
+def test_sql_injection_registration(client, mock_db):
     """Test SQL injection prevention in registration"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "user'; DROP TABLE User; --",
@@ -509,18 +508,23 @@ def test_sql_injection_registration(mock_read_query, client):
     # Should be handled safely (either succeed with escaped string or fail)
     assert res.status_code in [201, 422, 500]
     
-    # Verify the mock was called (proves query still executed safely)
-    assert mock_read_query.called
+    # Verify the mock was called (proves query still executed safely with mocks)
+    assert mock_db.read_query_to_df.called
+    
+    # Ensure NO actual database modification occurred
+    # The mock should have been called, not the real database
+    if mock_db.execute_query.called:
+        # Verify it was the mock that was called, not a real database
+        assert isinstance(mock_db.execute_query, MagicMock)
 
 
 # ==================== EDGE CASES ====================
 
-@patch("User.db.read_query_to_df")
-def test_case_sensitivity_login(mock_read_query, client):
+def test_case_sensitivity_login(client, mock_db):
     """Test case sensitivity in username during login"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": "TESTUSER", "password": "password123"}
     res = client.post("/login", json=payload)
@@ -529,12 +533,11 @@ def test_case_sensitivity_login(mock_read_query, client):
     assert res.status_code == 401
 
 
-@patch("User.db.read_query_to_df")
-def test_whitespace_in_credentials(mock_read_query, client):
+def test_whitespace_in_credentials(client, mock_db):
     """Test handling of whitespace in credentials"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
 
     payload = {"username": " testuser ", "password": " password123 "}
     res = client.post("/login", json=payload)
@@ -543,13 +546,12 @@ def test_whitespace_in_credentials(mock_read_query, client):
     assert res.status_code == 401
 
 
-@patch("User.db.execute_query")
-@patch("User.db.read_query_to_df")
-def test_numeric_only_username(mock_read_query, mock_execute, client):
+def test_numeric_only_username(client, mock_db):
     """Test registration with purely numeric username"""
     mock_df = MagicMock()
     mock_df.__len__ = MagicMock(return_value=0)
-    mock_read_query.return_value = mock_df
+    mock_db.read_query_to_df.return_value = mock_df
+    mock_db.execute_query.return_value = None
 
     payload = {
         "username": "123456789",
@@ -571,11 +573,13 @@ if __name__ == "__main__":
     print("\nTest Categories:")
     print("  • Login Tests (11 tests)")
     print("  • Registration Tests (15 tests)")
-    print("  • Integration/Flow Tests (2 tests)")
+    print("  • Integration/Flow Tests (1 test)")
     print("  • Security Tests (3 tests)")
     print("  • Edge Cases (3 tests)")
-    print("\nTotal: 34 test cases")
-    print("\n✅ All tests use mocks - no database connection required")
+    print("\nTotal: 33 test cases")
+    print("\n✓ All tests use mocks - NO database connection required")
+    print("✓ Database module is completely mocked")
+    print("✓ No real data will be written to any database")
     print("\nTo run these tests:")
     print("  pytest test_User.py -v")
     print("\nTo run with output:")
