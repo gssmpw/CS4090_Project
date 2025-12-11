@@ -27,9 +27,8 @@ jobs:
 
       # Show Python version (sanity check)
       - name: Check Python version
-        run: python --version
+        run: conda run -n CS4090Project python --version
 
-      # Run pytest
+      # Run pytest inside the conda environment
       - name: Run tests
-        run: |
-          pytest --maxfail=1 --disable-warnings -q
+        run: conda run -n CS4090Project pytest --maxfail=1 --disable-warnings -q
