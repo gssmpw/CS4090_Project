@@ -29,13 +29,6 @@ jobs:
       - name: Check Python version
         run: python --version
 
-      # Install pip packages if any remain
-      - name: Install pip packages
-        run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-
       # Run pytest
       - name: Run tests
         run: |
