@@ -16,14 +16,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: "3.11"
+          auto-update-conda: true
+          python-version: 3.11
+          use-mamba: true
 
-      - name: Install dependencies
+      - name: Create environment from file
         run: |
-          pip install -r requirements.txt
+          conda create --name myenv --file requirements.txt
+          conda activate myenv
 
       - name: Run basic tests
         run: pytest -q
@@ -34,7 +37,7 @@ jobs:
             --cov=. \
             --cov-report=term \
             --cov-report=xml \
-            --cov-report=html \
+            --cov-report=html
 
       - name: Prepare the webpage
         run: |
@@ -56,5 +59,3 @@ jobs:
     steps:
       - name: deploy the artifacts
         uses: actions/deploy-pages@v4
-    
-    
