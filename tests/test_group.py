@@ -7,6 +7,10 @@ import os
 # Add api folder to sys.path,  was a major issue with import issues in the original file when used in this
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "api"))
 
+# Mock the database and notification modules BEFORE importing Event - big issue was here
+sys.modules['classes'] = MagicMock()
+sys.modules['classes.GroupManager'] = MagicMock()
+
 from Group import app, gm
 
 @pytest.fixture
