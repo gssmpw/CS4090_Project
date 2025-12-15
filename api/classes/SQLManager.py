@@ -34,7 +34,7 @@ class DatabaseManager:
         connection_string = f"mssql+pyodbc:///?odbc_connect={params}"
         self.engine = create_engine(connection_string)
 
-    # QUERY FUNCTIONS
+    # query functions
     def read_query_to_df(self, sql: str, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Execute a SQL query and return results as a pandas DataFrame.

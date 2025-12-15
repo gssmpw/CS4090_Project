@@ -40,7 +40,7 @@ def mock_db():
         yield mock
 
 
-# ==================== LOGIN TESTS ====================
+# LOGIN tests
 
 def test_login_success(client, mock_db):
     """Test successful login with valid credentials"""
@@ -189,7 +189,7 @@ def test_login_sql_injection_attempt(client, mock_db):
     assert mock_db.read_query_to_df.called
 
 
-# ==================== REGISTRATION TESTS ====================
+# Registration Tests
 
 def test_register_success(client, mock_db):
     """Test successful user registration"""
@@ -410,7 +410,7 @@ def test_register_default_admin_false(client, mock_db):
     assert res.json()["isAdmin"] == False
 
 
-# ==================== INTEGRATION/FLOW TESTS ====================
+# Integration and Flow Testing
 
 def test_register_then_login_flow(client, mock_db):
     """Test complete registration then login flow"""
@@ -449,7 +449,7 @@ def test_register_then_login_flow(client, mock_db):
 
 
 
-# ==================== SECURITY TESTS ====================
+# Security Tests
 
 def test_password_not_in_response(client, mock_db):
     """Test that password is never returned in responses"""
@@ -518,7 +518,7 @@ def test_sql_injection_registration(client, mock_db):
         assert isinstance(mock_db.execute_query, MagicMock)
 
 
-# ==================== EDGE CASES ====================
+# Some edge cases
 
 def test_case_sensitivity_login(client, mock_db):
     """Test case sensitivity in username during login"""
@@ -564,7 +564,7 @@ def test_numeric_only_username(client, mock_db):
     assert res.status_code in [201, 422]
 
 
-# ==================== RUN SUMMARY ====================
+# Summary
 
 if __name__ == "__main__":
     print("\n" + "="*70)

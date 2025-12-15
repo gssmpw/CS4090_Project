@@ -39,7 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# RESPONSE MODELS
+# Response models
 
 class EventResponse(BaseModel):
     eventID: int
@@ -198,7 +198,7 @@ async def get_event_details(event_id: int) -> EventDetailResponse:
             detail=f"Error retrieving event details: {str(e)}"
         )
 
-# EVENT COMMAND ENDPOINTS
+# Event command endpoints
 
 @app.post("/events/{username}", status_code=status.HTTP_201_CREATED)
 async def create_event(username: str, event: EventCreate):
@@ -453,7 +453,7 @@ async def delete_event(username: str, event_id: int):
             detail=f"Error deleting event: {str(e)}"
         )
 
-# RSVP ENDPOINTS
+# RSVP Endpoitns
 
 @app.get("/rsvp/{event_id}/{username}")
 async def check_rsvp(event_id: int, username: str):

@@ -23,9 +23,7 @@ db = DatabaseManager(
     password="CSProject4090!"
 )
 
-# ============================================
-# REQUEST/RESPONSE MODELS
-# ============================================
+# Request / response models
 
 class LoginRequest(BaseModel):
     username: str
@@ -34,8 +32,8 @@ class LoginRequest(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    Fname: str  # Added - likely needed for your database
-    Lname: str  # Added - likely needed for your database
+    Fname: str  
+    Lname: str  
 
 class UserResponse(BaseModel):
     username: str
@@ -43,9 +41,7 @@ class UserResponse(BaseModel):
     Lname: str
     isAdmin: bool
 
-# ============================================
-# AUTHENTICATION ENDPOINT
-# ============================================
+# Auth endpoint
 
 @app.post("/login")
 async def login(request: LoginRequest) -> dict:
@@ -119,9 +115,6 @@ async def register(user: UserCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error during registration: {str(e)}"
         )
-# ============================================
-# RUN THE MICROSERVICE
-# ============================================
 
 if __name__ == "__main__":
     import uvicorn
