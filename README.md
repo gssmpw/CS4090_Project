@@ -20,8 +20,6 @@ Users will be split into one of 4 roles - Event Organizer, Regular Member, Cross
 
 **Cross-Group Collaborators** are similar to Regular Users, the sole difference being that they are associated with more than one event group.
 
-**Faculty Advisors** provide oversight and guidance to event groups.
-
 ## Prerequisites
 
 Before running this project, ensure you have the following installed on your computer:
@@ -29,6 +27,7 @@ Before running this project, ensure you have the following installed on your com
 ### Node.js and npm
 - **Node.js** (version 14.0 or higher recommended)
 - **npm** (comes with Node.js)
+- **odbc driver** need this driver for pyodbc library that connects to the our Azure database
 
 To check if Node.js and npm are installed:
 ```bash
@@ -62,7 +61,7 @@ cd <project-directory>
 ```
 
 ### 2. Install Python Dependencies
-Navigate to the project root directory and install the required Python packages:
+You shoud primarily use conda to install these dependencies with instructions in the requirements.txt file. You can also try to navigate to the project root directory and install the required Python packages:
 ```bash
 pip install -r requirements.txt
 # or
@@ -120,20 +119,6 @@ http://localhost:5173
 ```
 (The exact port may vary - check your terminal output for the correct URL)
 
-## Project Structure
-```
-project-root/
-├── frontend/           # React frontend application
-│   ├── src/
-│   ├── package.json
-│   └── ...
-├── group.py           # Group management API
-├── user.py            # User management API
-├── event.py           # Event management API
-├── requirements.txt   # Python dependencies
-└── README.md
-```
-
 ## Troubleshooting
 
 ### Port Already in Use
@@ -154,6 +139,6 @@ If React isn't working properly:
 - Delete `package-lock.json`
 - Run `npm install` again
 
-### database issues
+### Database issues
 - The database is hosted on azure and works by allowing whitelisted ips to access it
 - to get access please email ctk24b@umsystem.edu requesting it.
