@@ -252,66 +252,6 @@ async def create_event(username: str, event: EventCreate):
             detail=f"Error creating event: {str(e)}"
         )
 
-@app.post("/events/group/{group_id}", status_code=status.HTTP_201_CREATED)
-async def create_event_for_group(group_id: int, event: EventCreateForGroup):
-    """
-    Create a new event for a specific group.
-    """
-    try:
-        # Verify group exists
-        group_check = """
-            SELECT groupID FROM [Group] WHERE groupID = :group_id
-        """
-        group_df = db.read_query_to_df(group_check, {"group_id": group_id})
-        
-        if len(group_df) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Group not found"
-            )
-        
-        # Get the next available eventID
-        max_id_query = "SELECT ISNULL(MAX(eventID), 0) + 1 as next_id FROM [Event]"
-        max_id_df = db.read_query_to_df(max_id_query, {})
-        next_event_id = int(max_id_df.iloc[0]['next_id'])
-        
-        # Insert new event with explicit eventID
-        insert_query = """
-            INSERT INTO [Event] (eventID, date, description)
-            VALUES (:eventID, :date, :description)
-        """
-        
-        db.execute_query(insert_query, {
-            "eventID": next_event_id,
-            "date": event.date,
-            "description": event.description
-        })
-        
-        # Link event to group in GroupToEvent table
-        link_query = """
-            INSERT INTO GroupToEvent (eventID, groupID)
-            VALUES (:eventID, :groupID)
-        """
-        
-        db.execute_query(link_query, {
-            "eventID": next_event_id,
-            "groupID": group_id
-        })
-        
-        return {
-            "eventID": next_event_id,
-            "date": event.date,
-            "description": event.description,
-            "groupID": group_id
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating event: {str(e)}"
-        )
 
 @app.put("/events/{username}/{event_id}")
 async def update_event(username: str, event_id: int, event: EventUpdate):
@@ -647,7 +587,7 @@ async def create_event_for_group(group_id: int, event: EventCreateForGroup):
             )
 
             # Fetch all group members
-            members_query = "SELECT username FROM GroupMember WHERE groupID = :group_id"
+            members_query = f"SELECT username FROM GroupMember WHERE groupID = {group_id}"
             members_df = db.read_query_to_df(members_query, {"group_id": group_id})
             member_usernames = members_df["username"].tolist() if not members_df.empty else []
 
